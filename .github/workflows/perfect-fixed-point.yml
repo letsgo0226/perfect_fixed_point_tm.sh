@@ -1,0 +1,52 @@
+name: Perfect Fixed Point TM
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify 2 KB One-Liner
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("perfect_fixed_point_tm.sh")
+          b=p.read_bytes()
+          assert len(b)<2048, len(b)
+          assert len(p.read_text().splitlines())==1
+          print("SIZE =",len(b),"bytes")
+          print("ONE_LINE = true")
+          PY
+
+      - name: Shell syntax
+        run: sh -n perfect_fixed_point_tm.sh
+
+      - name: Run TM
+        run: sh perfect_fixed_point_tm.sh 8 | tee state.jsonl
+
+      - name: Prove invariants
+        run: |
+          python3 - <<'PY'
+          import json
+          x=[json.loads(s) for s in open("state.jsonl") if s.strip()]
+          h,*s=x
+          assert h["FIX"] and h["TABLEAU"] and h["PERFECT"]
+          assert len(s)==8
+          assert [z["n"] for z in s]==list(range(1,9))
+          assert all(z["REV"] and z["RETURN"] and z["FIX"] and z["PERFECT"] for z in s)
+          print("REV       = PASS")
+          print("RETURN    = PASS")
+          print("FIX       = PASS")
+          print("TABLEAU   = PASS")
+          print("PERFECT   = PASS")
+          print("OMEGA_CI  = ACCEPT")
+          PY
